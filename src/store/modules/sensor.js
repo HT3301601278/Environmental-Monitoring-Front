@@ -1,5 +1,5 @@
 import api from '@/api'
-import { ElMessage } from 'element-plus'
+import {ElMessage} from 'element-plus'
 
 export default {
   namespaced: true,
@@ -42,7 +42,7 @@ export default {
     async fetchRealTimeData({ commit }, sensorId) {
       try {
         commit('CLEAR_REALTIME_DATA')
-        
+
         const response = await api.get(`/api/sensors/${sensorId}/realtime`)
         if (response) {
           commit('SET_REALTIME_DATA', response)
@@ -125,4 +125,4 @@ export default {
       }
     }
   }
-} 
+}

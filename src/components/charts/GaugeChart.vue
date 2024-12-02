@@ -3,7 +3,7 @@
 </template>
 
 <script>
-import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import {nextTick, onMounted, onUnmounted, ref, watch} from 'vue'
 import * as echarts from 'echarts'
 
 export default {
@@ -47,10 +47,10 @@ export default {
       if (chart) {
         chart.dispose()
       }
-      
+
       // 确保容器已经挂载
       if (!chartContainer.value) return
-      
+
       chart = echarts.init(chartContainer.value)
       updateChart()
     }
@@ -83,7 +83,7 @@ export default {
           }]
         }]
       }
-      
+
       try {
         chart.setOption(option, true)
       } catch (error) {
@@ -102,11 +102,11 @@ export default {
           chart.resize()
         }
       })
-      
+
       if (chartContainer.value) {
         resizeObserver.observe(chartContainer.value)
       }
-      
+
       nextTick(() => initChart())
     })
 
@@ -124,4 +124,4 @@ export default {
     }
   }
 }
-</script> 
+</script>

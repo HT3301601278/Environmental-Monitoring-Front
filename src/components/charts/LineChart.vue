@@ -3,7 +3,7 @@
 </template>
 
 <script>
-import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import {nextTick, onMounted, onUnmounted, ref, watch} from 'vue'
 import * as echarts from 'echarts'
 import moment from 'moment'
 
@@ -32,10 +32,10 @@ export default {
       if (chart) {
         chart.dispose()
       }
-      
+
       // 确保容器已经挂载
       if (!chartContainer.value) return
-      
+
       chart = echarts.init(chartContainer.value)
       updateChart()
     }
@@ -44,23 +44,23 @@ export default {
     const convertWindDirection = (value) => {
       // 将0-100映射到0-360度
       const degree = (value / 100) * 360
-      
+
       // 将360度划分为8个方向
       // 每个方向占45度，从北方向开始顺时针
       const directions = ['北', '东北', '东', '东南', '南', '西南', '西', '西北']
-      
+
       // 计算对应的方向索引
       let index = Math.floor(((degree + 22.5) % 360) / 45)
-      
+
       return directions[index]
     }
 
     const updateChart = () => {
       if (!chart) return
-      
+
       // 添加数据验证和调试信息
       console.log('Updating chart with data:', props.data)
-      
+
       if (!props.data || !Array.isArray(props.data) || props.data.length === 0) {
         console.warn('No valid data for chart')
         chart.setOption({
@@ -74,14 +74,14 @@ export default {
       }
 
       // 检查是否是风向数据
-      const isWindDirection = document.title.includes('风向') || 
+      const isWindDirection = document.title.includes('风向') ||
                              document.querySelector('.el-card__header')?.textContent.includes('风向')
 
       // 计算数据的时间范围
       const timestamps = props.data.map(item => item[0])
       const minTime = Math.min(...timestamps)
       const maxTime = Math.max(...timestamps)
-      
+
       console.log('Time range:', { minTime, maxTime })
 
       const option = {
@@ -172,7 +172,7 @@ export default {
           } : {})
         }]
       }
-      
+
       try {
         chart.setOption(option, true)
         console.log('Chart updated successfully')
@@ -194,11 +194,11 @@ export default {
           chart.resize()
         }
       })
-      
+
       if (chartContainer.value) {
         resizeObserver.observe(chartContainer.value)
       }
-      
+
       nextTick(() => initChart())
     })
 
@@ -216,4 +216,4 @@ export default {
     }
   }
 }
-</script> 
+</script>

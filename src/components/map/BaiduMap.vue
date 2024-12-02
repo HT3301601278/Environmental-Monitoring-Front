@@ -11,9 +11,9 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue'
-import { useStore } from 'vuex'
-import { initMap, addMarker } from '@/utils/mapUtils'
+import {onMounted, ref} from 'vue'
+import {useStore} from 'vuex'
+import {addMarker, initMap} from '@/utils/mapUtils'
 
 export default {
   name: 'BaiduMap',
@@ -21,7 +21,7 @@ export default {
     const store = useStore()
     const mapContainer = ref(null)
     let map = null
-    
+
     const locateCurrentPosition = () => {
       const geolocation = new BMap.Geolocation()
       geolocation.getCurrentPosition(function(r) {
@@ -31,7 +31,7 @@ export default {
           const marker = new BMap.Marker(point)
           map.addOverlay(marker)
           marker.setAnimation(BMAP_ANIMATION_BOUNCE)
-          
+
           // 添加信息窗口
           const infoWindow = new BMap.InfoWindow("当前位置")
           marker.addEventListener("click", function() {
@@ -44,16 +44,16 @@ export default {
         enableHighAccuracy: true
       })
     }
-    
+
     onMounted(async () => {
       try {
         // 初始化地图
         map = await initMap('map')
-        
+
         // 获取传感器数据
         await store.dispatch('sensor/fetchSensors')
         const sensors = store.state.sensor.sensors
-        
+
         // 确保sensors存在且是数组再进行遍历
         if (sensors && Array.isArray(sensors)) {
           sensors.forEach(sensor => {
@@ -63,7 +63,7 @@ export default {
               addMarker(map, point, sensor)
             }
           })
-          
+
           // 如果有传感器数据，将地图中心设置为第一个传感器的位置
           if (sensors.length > 0 && sensors[0].longitude && sensors[0].latitude) {
             const firstPoint = new BMap.Point(sensors[0].longitude, sensors[0].latitude)
@@ -78,7 +78,7 @@ export default {
                 const marker = new BMap.Marker(point)
                 map.addOverlay(marker)
                 marker.setAnimation(BMAP_ANIMATION_BOUNCE)
-                
+
                 // 添加信息窗口
                 const infoWindow = new BMap.InfoWindow("当前位置")
                 marker.addEventListener("click", function() {
@@ -99,7 +99,7 @@ export default {
         console.error('地图初始化失败:', error)
       }
     })
-    
+
     return {
       mapContainer,
       locateCurrentPosition
@@ -136,4 +136,4 @@ export default {
   transform: scale(1.05);
   transition: transform 0.2s;
 }
-</style> 
+</style>

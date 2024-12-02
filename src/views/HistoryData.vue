@@ -6,7 +6,7 @@
           <span>历史数据查询</span>
         </div>
       </template>
-      
+
       <el-form :model="queryForm" label-width="100px">
         <el-row :gutter="20">
           <el-col :span="8">
@@ -87,9 +87,9 @@
 </template>
 
 <script>
-import { ref, computed } from 'vue'
-import { useStore } from 'vuex'
-import { ElMessage } from 'element-plus'
+import {computed, ref} from 'vue'
+import {useStore} from 'vuex'
+import {ElMessage} from 'element-plus'
 import LineChart from '@/components/charts/LineChart.vue'
 import moment from 'moment'
 
@@ -116,7 +116,7 @@ export default {
       const historyData = store.state.sensor.historicalData
       return historyData && Array.isArray(historyData.content) && historyData.content.length > 0
     })
-    
+
     const chartData = computed(() => {
       const historyData = store.state.sensor.historicalData
       if (!historyData?.content || !Array.isArray(historyData.content)) {
@@ -158,7 +158,7 @@ export default {
           page: currentPage.value - 1,
           size: pageSize.value
         })
-        
+
         const historyData = store.state.sensor.historicalData
         if (historyData?.content && Array.isArray(historyData.content) && historyData.content.length > 0) {
           total.value = historyData.totalElements || 0
@@ -251,4 +251,4 @@ export default {
   margin-top: 20px;
   text-align: right;
 }
-</style> 
+</style>

@@ -1,4 +1,4 @@
-import { createStore } from 'vuex'
+import {createStore} from 'vuex'
 import sensor from './modules/sensor'
 
 export default createStore({

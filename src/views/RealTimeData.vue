@@ -7,8 +7,8 @@
           <span>传感器选择</span>
         </div>
       </template>
-      <el-select 
-        v-model="selectedSensor" 
+      <el-select
+        v-model="selectedSensor"
         placeholder="请选择传感器"
         @change="handleSensorChange"
         style="width: 100%">
@@ -44,7 +44,7 @@
             />
           </el-card>
         </el-col>
-        
+
         <!-- 当前值和状态展示 -->
         <el-col :span="16">
           <el-card>
@@ -123,8 +123,8 @@
 </template>
 
 <script>
-import { ref, onMounted, onUnmounted, computed } from 'vue'
-import { useStore } from 'vuex'
+import {computed, onMounted, onUnmounted, ref} from 'vue'
+import {useStore} from 'vuex'
 import GaugeChart from '@/components/charts/GaugeChart.vue'
 import LineChart from '@/components/charts/LineChart.vue'
 import moment from 'moment'
@@ -144,10 +144,10 @@ export default {
 
     // 获取传感器列表
     const sensors = computed(() => store.state.sensor.sensors)
-    const currentSensor = computed(() => 
+    const currentSensor = computed(() =>
       sensors.value.find(s => s.id === selectedSensor.value)
     )
-    const currentSensorType = computed(() => 
+    const currentSensorType = computed(() =>
       currentSensor.value ? currentSensor.value.type : ''
     )
 
@@ -155,15 +155,15 @@ export default {
     const convertWindDirection = (value) => {
       // 将0-100映射到0-360度
       const degree = (value / 100) * 360
-      
+
       // 将360度划分为8个方向
       // 每个方向占45度，从北方向开始顺时针
       const directions = ['北', '东北', '东', '东南', '南', '西南', '西', '西北']
-      
+
       // 计算对应的方向索引
       // 加22.5度是为了让每个方向的范围以正方向为中心
       let index = Math.floor(((degree + 22.5) % 360) / 45)
-      
+
       // 返回对应的方向
       return directions[index]
     }
@@ -171,25 +171,25 @@ export default {
     // 修改 formatValue 函数
     const formatValue = (value) => {
       if (value === undefined || value === null) return '-'
-      
+
       const configs = {
         '温度': { unit: '℃', decimals: 1 },
         '湿度': { unit: '%', decimals: 1 },
         '光强': { unit: 'lux', decimals: 0 },
         '风速': { unit: 'm/s', decimals: 1 },
-        '风向': { 
+        '风向': {
           format: (val) => convertWindDirection(val),
-          unit: '' 
+          unit: ''
         }
       }
-      
+
       const config = configs[currentSensorType.value] || { unit: '', decimals: 0 }
-      
+
       // 如果是风向，使用特殊的格式化方法
       if (currentSensorType.value === '风向') {
         return config.format(value)
       }
-      
+
       // 其他类型的数据保持原来的格式化方式
       return `${Number(value).toFixed(config.decimals || 0)} ${config.unit || ''}`
     }
@@ -201,9 +201,9 @@ export default {
         '湿度': { min: 0, max: 100, unit: '%' },
         '光强': { min: 0, max: 1000, unit: 'lux' },
         '风速': { min: 0, max: 30, unit: 'm/s' },
-        '风向': { 
-          min: 0, 
-          max: 100, 
+        '风向': {
+          min: 0,
+          max: 100,
           unit: '',
           axisLabel: {
             formatter: function(value) {
@@ -212,14 +212,14 @@ export default {
           }
         }
       }
-      
+
       // 获取当前传感器类型
       const type = currentSensor.value?.type || ''
       const config = configs[type] || { min: 0, max: 100, unit: '' }
-      
+
       // 获取最新的数值
       const latestValue = tableData.value[0]?.value || 0
-      
+
       return {
         title: type ? `${type}${config.unit ? `(${config.unit})` : ''}` : '',
         value: latestValue,
@@ -234,17 +234,17 @@ export default {
       if (timer) {
         clearInterval(timer)
       }
-      
+
       // 清空所有数据
       chartData.value = []
       tableData.value = []
-      
+
       if (sensorId) {
         try {
           // 固定查询时间
           const startTime = '2000-01-01T00:00:00'
           const endTime = '2100-12-31T00:00:00'
-          
+
           const response = await store.dispatch('sensor/fetchHistoricalData', {
             sensorId,
             startTime,
@@ -252,11 +252,11 @@ export default {
             page: 0,
             size: 1000
           })
-          
+
           // 更新图表数据
           if (response?.data?.content) {
             const historyData = response.data.content
-            
+
             // 确保数据是有效的
             if (Array.isArray(historyData) && historyData.length > 0) {
               // 按时间升序排序用于图表显示
@@ -266,9 +266,9 @@ export default {
                   new Date(item.timestamp).getTime(),
                   parseFloat(item.value)
                 ])
-              
+
               chartData.value = sortedChartData
-              
+
               // 按时间降序排序用于表格显示
               tableData.value = [...historyData]
                 .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
@@ -279,13 +279,13 @@ export default {
                   sensorName: item.sensor.name,
                   type: item.sensor.type
                 }))
-                
+
               console.log('Chart data:', chartData.value) // 调试用
             } else {
               console.warn('No valid historical data received')
             }
           }
-          
+
           // 开始实时更新
           startRealTimeUpdate(sensorId)
         } catch (error) {
@@ -320,7 +320,7 @@ export default {
         sensorName: data.sensorName,
         type: data.type
       }
-      
+
       tableData.value = [newTableData, ...tableData.value.slice(0, 9)]
 
       // 更新趋势图数据
@@ -328,7 +328,7 @@ export default {
         new Date(data.timestamp).getTime(),
         parseFloat(data.value)
       ]
-      
+
       // 添加新数据点，并保持时间窗口为7天
       const oneWeekAgo = moment().subtract(7, 'days').valueOf()
       chartData.value = [...chartData.value, newChartData]
@@ -402,4 +402,4 @@ export default {
 .el-descriptions {
   margin: 20px 0;
 }
-</style> 
+</style>
