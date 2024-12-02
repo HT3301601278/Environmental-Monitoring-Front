@@ -19,8 +19,24 @@ export default {
     SET_REALTIME_DATA(state, data) {
       state.realTimeData = data
     },
-    SET_HISTORICAL_DATA(state, data) {
-      state.historicalData = data
+    SET_HISTORICAL_DATA(state, response) {
+      if (response?.data) {
+        state.historicalData = {
+          content: response.data.content || [],
+          totalElements: response.data.totalElements || 0,
+          totalPages: response.data.totalPages || 0,
+          pageSize: response.data.size || 10,
+          pageNumber: response.data.number || 0
+        }
+      } else {
+        state.historicalData = {
+          content: [],
+          totalElements: 0,
+          totalPages: 0,
+          pageSize: 10,
+          pageNumber: 0
+        }
+      }
     }
   },
   actions: {
@@ -58,8 +74,8 @@ export default {
             size
           }
         })
-        if (response.data) {
-          commit('SET_HISTORICAL_DATA', response.data.data)
+        if (response) {
+          commit('SET_HISTORICAL_DATA', response)
         }
       } catch (error) {
         ElMessage.error('获取历史数据失败')
@@ -104,6 +120,17 @@ export default {
       } catch (error) {
         ElMessage.error('位置更新失败')
         console.error('更新传感器位置失败:', error)
+      }
+    },
+    async fetchAllRealTimeData({ commit }) {
+      try {
+        const response = await api.get('/api/data/realtime/all')
+        if (response?.data) {
+          commit('SET_REALTIME_DATA', response.data)
+        }
+      } catch (error) {
+        ElMessage.error('获取实时数据失败')
+        console.error('获取实时数据失败:', error)
       }
     }
   }

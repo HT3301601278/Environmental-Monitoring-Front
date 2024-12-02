@@ -19,10 +19,6 @@
           <el-icon><histogram /></el-icon>
           <span>历史数据</span>
         </el-menu-item>
-        <el-menu-item index="/sensor-management">
-          <el-icon><setting /></el-icon>
-          <span>传感器管理</span>
-        </el-menu-item>
       </el-menu>
     </el-aside>
     

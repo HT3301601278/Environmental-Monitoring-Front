@@ -74,11 +74,9 @@
             {{ formatTime(scope.row.timestamp) }}
           </template>
         </el-table-column>
-        <el-table-column prop="temperature" label="温度(℃)" sortable />
-        <el-table-column prop="humidity" label="湿度(%)" sortable />
-        <el-table-column prop="light" label="光照(lux)" sortable />
-        <el-table-column prop="windSpeed" label="风速(m/s)" sortable />
-        <el-table-column prop="windDirection" label="风向" />
+        <el-table-column prop="sensorName" label="传感器名称" />
+        <el-table-column prop="sensorType" label="传感器类型" />
+        <el-table-column prop="value" label="数值" />
       </el-table>
       <div class="pagination">
         <el-pagination
@@ -121,19 +119,33 @@ export default {
       new Date(2000, 2, 1, 23, 59, 59)
     ]
 
-    const hasData = computed(() => store.state.sensor.historicalData.length > 0)
+    const hasData = computed(() => {
+      const historyData = store.state.sensor.historicalData
+      return historyData && Array.isArray(historyData.content) && historyData.content.length > 0
+    })
     
     const chartData = computed(() => {
-      return store.state.sensor.historicalData.map(item => [
+      const historyData = store.state.sensor.historicalData
+      if (!historyData?.content || !Array.isArray(historyData.content)) {
+        return []
+      }
+      return historyData.content.map(item => [
         new Date(item.timestamp).getTime(),
-        item[currentMetric.value]
+        item.value
       ])
     })
 
     const tableData = computed(() => {
-      const start = (currentPage.value - 1) * pageSize.value
-      const end = start + pageSize.value
-      return store.state.sensor.historicalData.slice(start, end)
+      const historyData = store.state.sensor.historicalData
+      if (!historyData?.content || !Array.isArray(historyData.content)) {
+        return []
+      }
+      return historyData.content.map(item => ({
+        timestamp: item.timestamp,
+        value: item.value,
+        sensorName: item.sensor.name,
+        sensorType: item.sensor.type
+      }))
     })
 
     const handleQuery = async () => {
@@ -143,14 +155,27 @@ export default {
       }
 
       const [startTime, endTime] = queryForm.value.timeRange
-      await store.dispatch('sensor/fetchHistoricalData', {
-        sensorId: queryForm.value.sensorId,
-        startTime: startTime.toISOString(),
-        endTime: endTime.toISOString()
-      })
-      
-      total.value = store.state.sensor.historicalData.length
-      currentPage.value = 1
+      try {
+        await store.dispatch('sensor/fetchHistoricalData', {
+          sensorId: queryForm.value.sensorId,
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          page: currentPage.value - 1,
+          size: pageSize.value
+        })
+        
+        const historyData = store.state.sensor.historicalData
+        if (historyData && Array.isArray(historyData.content)) {
+          total.value = historyData.totalElements || 0
+        } else {
+          total.value = 0
+          ElMessage.warning('暂无历史数据')
+        }
+        currentPage.value = 1
+      } catch (error) {
+        console.error('查询历史数据失败:', error)
+        ElMessage.error('查询历史数据失败')
+      }
     }
 
     const handleSizeChange = (val) => {

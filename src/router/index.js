@@ -15,11 +15,6 @@ const routes = [
     path: '/history',
     name: 'history',
     component: () => import('../views/HistoryData.vue')
-  },
-  {
-    path: '/sensor-management',
-    name: 'sensor-management',
-    component: () => import('../views/SensorManagement.vue')
   }
 ]
 

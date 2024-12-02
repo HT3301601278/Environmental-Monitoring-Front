@@ -35,30 +35,38 @@ export default {
     }
 
     const updateChart = () => {
-      const option = {
-        tooltip: {
-          trigger: 'axis'
-        },
-        xAxis: {
-          type: 'time',
-          boundaryGap: false
-        },
-        yAxis: {
-          type: 'value',
-          boundaryGap: [0, '100%']
-        },
-        series: [{
-          name: '数值',
-          type: 'line',
-          data: props.data,
-          smooth: true
-        }]
-      }
-      chart.setOption(option)
+      if (!chart) return
+
+      requestAnimationFrame(() => {
+        const option = {
+          tooltip: {
+            trigger: 'axis'
+          },
+          xAxis: {
+            type: 'time',
+            boundaryGap: false
+          },
+          yAxis: {
+            type: 'value',
+            boundaryGap: [0, '100%']
+          },
+          series: [{
+            name: '数值',
+            type: 'line',
+            data: props.data,
+            smooth: true,
+            animation: true,
+            animationDuration: 300
+          }]
+        }
+        chart.setOption(option, true)
+      })
     }
 
     watch(() => props.data, () => {
-      updateChart()
+      if (props.data && props.data.length > 0) {
+        updateChart()
+      }
     }, { deep: true })
 
     onMounted(() => {
