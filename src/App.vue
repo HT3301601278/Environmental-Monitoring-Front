@@ -1,30 +1,58 @@
 <template>
-  <nav>
-    <router-link to="/">Home</router-link> |
-    <router-link to="/about">About</router-link>
-  </nav>
-  <router-view/>
+  <el-container class="app-container">
+    <el-aside width="200px">
+      <el-menu
+        :router="true"
+        class="el-menu-vertical"
+        background-color="#545c64"
+        text-color="#fff"
+        active-text-color="#ffd04b">
+        <el-menu-item index="/">
+          <el-icon><location /></el-icon>
+          <span>地图监控</span>
+        </el-menu-item>
+        <el-menu-item index="/realtime">
+          <el-icon><data-line /></el-icon>
+          <span>实时数据</span>
+        </el-menu-item>
+        <el-menu-item index="/history">
+          <el-icon><histogram /></el-icon>
+          <span>历史数据</span>
+        </el-menu-item>
+        <el-menu-item index="/sensor-management">
+          <el-icon><setting /></el-icon>
+          <span>传感器管理</span>
+        </el-menu-item>
+      </el-menu>
+    </el-aside>
+    
+    <el-container>
+      <el-header>环境监测系统</el-header>
+      <el-main>
+        <router-view />
+      </el-main>
+    </el-container>
+  </el-container>
 </template>
 
 <style>
-#app {
-  font-family: Avenir, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+.app-container {
+  height: 100vh;
+}
+
+.el-header {
+  background-color: #545c64;
+  color: white;
+  line-height: 60px;
   text-align: center;
-  color: #2c3e50;
+  font-size: 20px;
 }
 
-nav {
-  padding: 30px;
+.el-aside {
+  background-color: #545c64;
 }
 
-nav a {
-  font-weight: bold;
-  color: #2c3e50;
-}
-
-nav a.router-link-exact-active {
-  color: #42b983;
+.el-menu-vertical {
+  border-right: none;
 }
 </style>
