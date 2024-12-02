@@ -27,12 +27,13 @@ export default {
     async fetchSensors({ commit }) {
       try {
         const response = await api.get('/api/sensors')
-        if (response.data) {
-          commit('SET_SENSORS', response.data.data)
+        if (response && response.data) {
+          commit('SET_SENSORS', response.data)
         }
       } catch (error) {
         ElMessage.error('获取传感器列表失败')
         console.error('获取传感器列表失败:', error)
+        throw error
       }
     },
     async fetchRealTimeData({ commit }, sensorId) {

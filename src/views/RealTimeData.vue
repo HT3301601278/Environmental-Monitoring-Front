@@ -72,7 +72,7 @@
 </template>
 
 <script>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useStore } from 'vuex'
 import GaugeChart from '@/components/charts/GaugeChart.vue'
 import LineChart from '@/components/charts/LineChart.vue'
@@ -95,6 +95,8 @@ export default {
       { title: '湿度', value: 0, min: 0, max: 100 },
       { title: '光照', value: 0, min: 0, max: 100000 }
     ])
+
+    const sensors = computed(() => store.state.sensor.sensors || [])
 
     const handleSensorChange = async (sensorId) => {
       clearInterval(timer)
@@ -144,7 +146,12 @@ export default {
     }
 
     onMounted(async () => {
-      await store.dispatch('sensor/fetchSensors')
+      try {
+        await store.dispatch('sensor/fetchSensors')
+      } catch (error) {
+        console.error('获取传感器列表失败:', error)
+        ElMessage.error('获取传感器列表失败')
+      }
     })
 
     onUnmounted(() => {
@@ -155,7 +162,7 @@ export default {
 
     return {
       currentSensorId,
-      sensors: store.state.sensor.sensors,
+      sensors,
       gaugeData,
       chartData,
       tableData,
