@@ -32,6 +32,10 @@ export default {
     width: {
       type: String,
       default: '100%'
+    },
+    axisLabel: {
+      type: Object,
+      default: () => ({})
     }
   },
   setup(props) {
@@ -63,8 +67,16 @@ export default {
           type: 'gauge',
           min: props.min,
           max: props.max,
+          axisLabel: props.axisLabel || {},
           detail: {
-            formatter: '{value}'
+            formatter: function(value) {
+              if (props.title.includes('风向')) {
+                const directions = ['北', '东北', '东', '东南', '南', '西南', '西', '西北']
+                const index = Math.floor(((value / 100 * 360 + 22.5) % 360) / 45)
+                return directions[index]
+              }
+              return value
+            }
           },
           data: [{
             value: props.value

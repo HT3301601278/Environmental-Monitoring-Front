@@ -40,16 +40,58 @@ export default {
       updateChart()
     }
 
+    // 添加风向转换函数
+    const convertWindDirection = (value) => {
+      // 将0-100映射到0-360度
+      const degree = (value / 100) * 360
+      
+      // 将360度划分为8个方向
+      // 每个方向占45度，从北方向开始顺时针
+      const directions = ['北', '东北', '东', '东南', '南', '西南', '西', '西北']
+      
+      // 计算对应的方向索引
+      let index = Math.floor(((degree + 22.5) % 360) / 45)
+      
+      return directions[index]
+    }
+
     const updateChart = () => {
       if (!chart) return
+      
+      // 添加数据验证和调试信息
+      console.log('Updating chart with data:', props.data)
+      
+      if (!props.data || !Array.isArray(props.data) || props.data.length === 0) {
+        console.warn('No valid data for chart')
+        chart.setOption({
+          title: {
+            text: '暂无数据',
+            left: 'center',
+            top: 'center'
+          }
+        })
+        return
+      }
+
+      // 检查是否是风向数据
+      const isWindDirection = document.title.includes('风向') || 
+                             document.querySelector('.el-card__header')?.textContent.includes('风向')
+
+      // 计算数据的时间范围
+      const timestamps = props.data.map(item => item[0])
+      const minTime = Math.min(...timestamps)
+      const maxTime = Math.max(...timestamps)
+      
+      console.log('Time range:', { minTime, maxTime })
 
       const option = {
         tooltip: {
           trigger: 'axis',
           formatter: function(params) {
             const data = params[0];
-            return `${moment(data.value[0]).format('HH:mm:ss')}<br/>
-                    ${data.marker} ${data.value[1]}`
+            const value = isWindDirection ? convertWindDirection(data.value[1]) : data.value[1]
+            return `${moment(data.value[0]).format('YYYY-MM-DD HH:mm:ss')}<br/>
+                    ${data.marker} ${value}`
           }
         },
         grid: {
@@ -63,59 +105,77 @@ export default {
           boundaryGap: false,
           axisLabel: {
             formatter: function(value) {
-              const now = moment();
-              const time = moment(value);
-              const diff = now.diff(time, 'seconds');
-              
-              if (diff < 60) {
-                return `${diff}秒前`;
-              } else if (diff < 3600) {
-                return `${Math.floor(diff / 60)}分钟前`;
-              } else {
-                return time.format('HH:mm:ss');
-              }
+              return moment(value).format('MM-DD HH:mm')
             },
-            interval: 0,  // 显示所有标签
-            rotate: 30    // 标签旋转30度，防止重叠
+            interval: 'auto',
+            rotate: 30
           },
           splitLine: {
             show: false
           },
-          // 设置时间轴的最小间隔为5秒
-          minInterval: 5000,
-          // 设置时间轴的最大值为当前时间，最小值为10分钟前
-          max: function() {
-            return new Date().getTime();
-          },
-          min: function() {
-            return new Date().getTime() - 10 * 60 * 1000;
-          }
+          min: minTime,
+          max: maxTime
         },
         yAxis: {
           type: 'value',
-          boundaryGap: [0, '20%'],  // 增加上下边界间隔
+          boundaryGap: [0, '20%'],
           splitLine: {
             lineStyle: {
               type: 'dashed'
             }
-          }
+          },
+          // 为风向数据设置固定刻度
+          ...(isWindDirection ? {
+            min: 0,
+            max: 100,
+            interval: 12.5, // 将0-100等分为8份
+            axisLabel: {
+              formatter: function(value) {
+                return convertWindDirection(value)
+              }
+            },
+            axisLine: { show: true },
+            axisTick: { show: true }
+          } : {})
         },
         series: [{
           name: '数值',
           type: 'line',
-          showSymbol: false,
+          showSymbol: true,
+          symbolSize: 6,
           data: props.data,
           smooth: true,
           animation: true,
           animationDuration: 300,
           areaStyle: {
             opacity: 0.1
-          }
+          },
+          // 为风向数据添加特殊标记
+          ...(isWindDirection ? {
+            markLine: {
+              silent: true,
+              symbol: 'none',
+              lineStyle: {
+                type: 'dashed',
+                color: '#ccc'
+              },
+              data: [
+                { yAxis: 12.5 },
+                { yAxis: 25 },
+                { yAxis: 37.5 },
+                { yAxis: 50 },
+                { yAxis: 62.5 },
+                { yAxis: 75 },
+                { yAxis: 87.5 }
+              ]
+            }
+          } : {})
         }]
       }
       
       try {
         chart.setOption(option, true)
+        console.log('Chart updated successfully')
       } catch (error) {
         console.error('更新图表失败:', error)
       }

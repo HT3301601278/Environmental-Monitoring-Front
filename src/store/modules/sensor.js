@@ -19,6 +19,9 @@ export default {
     SET_REALTIME_DATA(state, response) {
       state.realTimeData = response
     },
+    SET_HISTORICAL_DATA(state, data) {
+      state.historicalData = data
+    },
     CLEAR_REALTIME_DATA(state) {
       state.realTimeData = null
     }
@@ -60,12 +63,14 @@ export default {
             size
           }
         })
-        if (response) {
-          commit('SET_HISTORICAL_DATA', response)
+        if (response && response.data) {
+          commit('SET_HISTORICAL_DATA', response.data)
+          return response
         }
       } catch (error) {
         ElMessage.error('获取历史数据失败')
         console.error('获取历史数据失败:', error)
+        throw error
       }
     },
     async addSensor({ dispatch }, sensor) {

@@ -151,14 +151,66 @@ export default {
       currentSensor.value ? currentSensor.value.type : ''
     )
 
-    // 修改仪表盘数据配置
+    // 在 setup 函数内添加风向转换函数
+    const convertWindDirection = (value) => {
+      // 将0-100映射到0-360度
+      const degree = (value / 100) * 360
+      
+      // 将360度划分为8个方向
+      // 每个方向占45度，从北方向开始顺时针
+      const directions = ['北', '东北', '东', '东南', '南', '西南', '西', '西北']
+      
+      // 计算对应的方向索引
+      // 加22.5度是为了让每个方向的范围以正方向为中心
+      let index = Math.floor(((degree + 22.5) % 360) / 45)
+      
+      // 返回对应的方向
+      return directions[index]
+    }
+
+    // 修改 formatValue 函数
+    const formatValue = (value) => {
+      if (value === undefined || value === null) return '-'
+      
+      const configs = {
+        '温度': { unit: '℃', decimals: 1 },
+        '湿度': { unit: '%', decimals: 1 },
+        '光强': { unit: 'lux', decimals: 0 },
+        '风速': { unit: 'm/s', decimals: 1 },
+        '风向': { 
+          format: (val) => convertWindDirection(val),
+          unit: '' 
+        }
+      }
+      
+      const config = configs[currentSensorType.value] || { unit: '', decimals: 0 }
+      
+      // 如果是风向，使用特殊的格式化方法
+      if (currentSensorType.value === '风向') {
+        return config.format(value)
+      }
+      
+      // 其他类型的数据保持原来的格式化方式
+      return `${Number(value).toFixed(config.decimals || 0)} ${config.unit || ''}`
+    }
+
+    // 修改仪表盘数据配置中的风向配置
     const gaugeData = computed(() => {
       const configs = {
         '温度': { min: -20, max: 50, unit: '℃' },
         '湿度': { min: 0, max: 100, unit: '%' },
         '光强': { min: 0, max: 1000, unit: 'lux' },
         '风速': { min: 0, max: 30, unit: 'm/s' },
-        '风向': { min: 0, max: 360, unit: '°' }
+        '风向': { 
+          min: 0, 
+          max: 100, 
+          unit: '',
+          axisLabel: {
+            formatter: function(value) {
+              return convertWindDirection(value)
+            }
+          }
+        }
       }
       
       // 获取当前传感器类型
@@ -169,28 +221,13 @@ export default {
       const latestValue = tableData.value[0]?.value || 0
       
       return {
-        title: type ? `${type}(${config.unit})` : '',
+        title: type ? `${type}${config.unit ? `(${config.unit})` : ''}` : '',
         value: latestValue,
         min: config.min,
-        max: config.max
+        max: config.max,
+        axisLabel: config.axisLabel
       }
     })
-
-    // 格式化数值显示
-    const formatValue = (value) => {
-      if (value === undefined || value === null) return '-'
-      
-      const configs = {
-        '温度': { unit: '℃', decimals: 1 },
-        '湿度': { unit: '%', decimals: 1 },
-        '光强': { unit: 'lux', decimals: 0 },
-        '风速': { unit: 'm/s', decimals: 1 },
-        '风向': { unit: '°', decimals: 0 }
-      }
-      
-      const config = configs[currentSensorType.value] || { unit: '', decimals: 0 }
-      return `${Number(value).toFixed(config.decimals)} ${config.unit}`
-    }
 
     // 处理传感器选择变化
     const handleSensorChange = async (sensorId) => {
@@ -213,24 +250,47 @@ export default {
             startTime,
             endTime,
             page: 0,
-            size: 1000 // 获取足够多的数据点
+            size: 1000
           })
           
           // 更新图表数据
           if (response?.data?.content) {
             const historyData = response.data.content
-            chartData.value = historyData
-              .sort((a, b) => moment(a.timestamp).valueOf() - moment(b.timestamp).valueOf())
-              .map(item => [
-                new Date(item.timestamp).getTime(),
-                item.value
-              ])
+            
+            // 确保数据是有效的
+            if (Array.isArray(historyData) && historyData.length > 0) {
+              // 按时间升序排序用于图表显示
+              const sortedChartData = [...historyData]
+                .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+                .map(item => [
+                  new Date(item.timestamp).getTime(),
+                  parseFloat(item.value)
+                ])
+              
+              chartData.value = sortedChartData
+              
+              // 按时间降序排序用于表格显示
+              tableData.value = [...historyData]
+                .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+                .map(item => ({
+                  timestamp: item.timestamp,
+                  value: parseFloat(item.value),
+                  status: item.sensor.status,
+                  sensorName: item.sensor.name,
+                  type: item.sensor.type
+                }))
+                
+              console.log('Chart data:', chartData.value) // 调试用
+            } else {
+              console.warn('No valid historical data received')
+            }
           }
           
           // 开始实时更新
           startRealTimeUpdate(sensorId)
         } catch (error) {
           console.error('切换传感器失败:', error)
+          ElMessage.error('获取历史数据失败')
         }
       }
     }
@@ -255,7 +315,7 @@ export default {
       // 更新表格数据
       const newTableData = {
         timestamp: data.timestamp,
-        value: data.value,
+        value: parseFloat(data.value),
         status: true,
         sensorName: data.sensorName,
         type: data.type
@@ -266,7 +326,7 @@ export default {
       // 更新趋势图数据
       const newChartData = [
         new Date(data.timestamp).getTime(),
-        data.value
+        parseFloat(data.value)
       ]
       
       // 添加新数据点，并保持时间窗口为7天

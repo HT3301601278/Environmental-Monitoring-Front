@@ -44,12 +44,6 @@
       <template #header>
         <div class="card-header">
           <span>历史数据趋势</span>
-          <el-radio-group v-model="currentMetric" size="small">
-            <el-radio-button label="temperature">温度</el-radio-button>
-            <el-radio-button label="humidity">湿度</el-radio-button>
-            <el-radio-button label="light">光照</el-radio-button>
-            <el-radio-button label="windSpeed">风速</el-radio-button>
-          </el-radio-group>
         </div>
       </template>
       <line-chart :data="chartData" height="400px" />
@@ -59,7 +53,6 @@
       <template #header>
         <div class="card-header">
           <span>历史数据列表</span>
-          <el-button type="primary" size="small" @click="exportData">导出数据</el-button>
         </div>
       </template>
       <el-table
@@ -96,6 +89,7 @@
 <script>
 import { ref, computed } from 'vue'
 import { useStore } from 'vuex'
+import { ElMessage } from 'element-plus'
 import LineChart from '@/components/charts/LineChart.vue'
 import moment from 'moment'
 
@@ -110,7 +104,6 @@ export default {
       sensorId: null,
       timeRange: null
     })
-    const currentMetric = ref('temperature')
     const currentPage = ref(1)
     const pageSize = ref(10)
     const total = ref(0)
@@ -129,10 +122,12 @@ export default {
       if (!historyData?.content || !Array.isArray(historyData.content)) {
         return []
       }
-      return historyData.content.map(item => [
-        new Date(item.timestamp).getTime(),
-        item.value
-      ])
+      return historyData.content
+        .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+        .map(item => [
+          new Date(item.timestamp).getTime(),
+          parseFloat(item.value)
+        ])
     })
 
     const tableData = computed(() => {
@@ -142,7 +137,7 @@ export default {
       }
       return historyData.content.map(item => ({
         timestamp: item.timestamp,
-        value: item.value,
+        value: parseFloat(item.value),
         sensorName: item.sensor.name,
         sensorType: item.sensor.type
       }))
@@ -156,7 +151,7 @@ export default {
 
       const [startTime, endTime] = queryForm.value.timeRange
       try {
-        await store.dispatch('sensor/fetchHistoricalData', {
+        const result = await store.dispatch('sensor/fetchHistoricalData', {
           sensorId: queryForm.value.sensorId,
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
@@ -165,13 +160,13 @@ export default {
         })
         
         const historyData = store.state.sensor.historicalData
-        if (historyData && Array.isArray(historyData.content)) {
+        if (historyData?.content && Array.isArray(historyData.content) && historyData.content.length > 0) {
           total.value = historyData.totalElements || 0
+          currentPage.value = 1
         } else {
           total.value = 0
           ElMessage.warning('暂无历史数据')
         }
-        currentPage.value = 1
       } catch (error) {
         console.error('查询历史数据失败:', error)
         ElMessage.error('查询历史数据失败')
@@ -215,7 +210,6 @@ export default {
 
     return {
       queryForm,
-      currentMetric,
       currentPage,
       pageSize,
       total,
