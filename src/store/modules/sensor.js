@@ -16,8 +16,8 @@ export default {
     SET_CURRENT_SENSOR(state, sensor) {
       state.currentSensor = sensor
     },
-    SET_REALTIME_DATA(state, data) {
-      state.realTimeData = { ...data }
+    SET_REALTIME_DATA(state, response) {
+      state.realTimeData = response
     },
     CLEAR_REALTIME_DATA(state) {
       state.realTimeData = null
@@ -41,8 +41,8 @@ export default {
         commit('CLEAR_REALTIME_DATA')
         
         const response = await api.get(`/api/sensors/${sensorId}/realtime`)
-        if (response.data) {
-          commit('SET_REALTIME_DATA', response.data.data)
+        if (response) {
+          commit('SET_REALTIME_DATA', response)
         }
       } catch (error) {
         ElMessage.error('获取实时数据失败')

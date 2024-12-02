@@ -223,9 +223,9 @@ export default {
     const fetchRealTimeData = async (sensorId) => {
       try {
         await store.dispatch('sensor/fetchRealTimeData', sensorId)
-        const data = store.state.sensor.realTimeData
-        if (data) {
-          updateDisplayData(data)
+        const response = store.state.sensor.realTimeData
+        if (response && response.data) {
+          updateDisplayData(response.data)
         }
       } catch (error) {
         console.error('获取实时数据失败:', error)
@@ -240,7 +240,9 @@ export default {
       const newTableData = {
         timestamp: data.timestamp,
         value: data.value,
-        status: true
+        status: true,
+        sensorName: data.sensorName,
+        type: data.type
       }
       
       // 使用新数组替换原数组，确保触发响应式更新
