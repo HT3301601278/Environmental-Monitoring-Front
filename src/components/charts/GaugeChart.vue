@@ -3,7 +3,7 @@
 </template>
 
 <script>
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import * as echarts from 'echarts'
 
 export default {
@@ -37,16 +37,23 @@ export default {
   setup(props) {
     const chartContainer = ref(null)
     let chart = null
+    let resizeObserver = null
 
     const initChart = () => {
       if (chart) {
         chart.dispose()
       }
+      
+      // 确保容器已经挂载
+      if (!chartContainer.value) return
+      
       chart = echarts.init(chartContainer.value)
       updateChart()
     }
 
     const updateChart = () => {
+      if (!chart) return
+
       const option = {
         title: {
           text: props.title,
@@ -64,23 +71,40 @@ export default {
           }]
         }]
       }
-      chart.setOption(option)
+      
+      try {
+        chart.setOption(option, true)
+      } catch (error) {
+        console.error('更新图表失败:', error)
+      }
     }
 
     watch(() => props.value, () => {
-      updateChart()
+      nextTick(() => updateChart())
     })
 
     onMounted(() => {
-      initChart()
-      window.addEventListener('resize', initChart)
+      // 使用 ResizeObserver 替代 window.resize
+      resizeObserver = new ResizeObserver(() => {
+        if (chart) {
+          chart.resize()
+        }
+      })
+      
+      if (chartContainer.value) {
+        resizeObserver.observe(chartContainer.value)
+      }
+      
+      nextTick(() => initChart())
     })
 
     onUnmounted(() => {
+      if (resizeObserver) {
+        resizeObserver.disconnect()
+      }
       if (chart) {
         chart.dispose()
       }
-      window.removeEventListener('resize', initChart)
     })
 
     return {

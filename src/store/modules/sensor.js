@@ -17,26 +17,10 @@ export default {
       state.currentSensor = sensor
     },
     SET_REALTIME_DATA(state, data) {
-      state.realTimeData = data
+      state.realTimeData = { ...data }
     },
-    SET_HISTORICAL_DATA(state, response) {
-      if (response?.data) {
-        state.historicalData = {
-          content: response.data.content || [],
-          totalElements: response.data.totalElements || 0,
-          totalPages: response.data.totalPages || 0,
-          pageSize: response.data.size || 10,
-          pageNumber: response.data.number || 0
-        }
-      } else {
-        state.historicalData = {
-          content: [],
-          totalElements: 0,
-          totalPages: 0,
-          pageSize: 10,
-          pageNumber: 0
-        }
-      }
+    CLEAR_REALTIME_DATA(state) {
+      state.realTimeData = null
     }
   },
   actions: {
@@ -54,6 +38,8 @@ export default {
     },
     async fetchRealTimeData({ commit }, sensorId) {
       try {
+        commit('CLEAR_REALTIME_DATA')
+        
         const response = await api.get(`/api/sensors/${sensorId}/realtime`)
         if (response.data) {
           commit('SET_REALTIME_DATA', response.data.data)

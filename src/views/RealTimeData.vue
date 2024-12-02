@@ -27,10 +27,15 @@
 
     <!-- 数据展示区域 - 仅在选择传感器后显示 -->
     <template v-if="selectedSensor">
+      <!-- 仪表盘展示区域 -->
       <el-row :gutter="20" class="data-display">
-        <!-- 仪表盘展示 -->
-        <el-col :span="12">
+        <el-col :span="8">
           <el-card>
+            <template #header>
+              <div class="card-header">
+                <span>实时仪表</span>
+              </div>
+            </template>
             <gauge-chart
               :value="gaugeData.value"
               :title="gaugeData.title"
@@ -39,10 +44,37 @@
             />
           </el-card>
         </el-col>
+        
+        <!-- 当前值和状态展示 -->
+        <el-col :span="16">
+          <el-card>
+            <template #header>
+              <div class="card-header">
+                <span>传感器信息</span>
+              </div>
+            </template>
+            <el-descriptions :column="2" border>
+              <el-descriptions-item label="传感器名称">
+                {{ currentSensor?.name }}
+              </el-descriptions-item>
+              <el-descriptions-item label="传感器类型">
+                {{ currentSensor?.type }}
+              </el-descriptions-item>
+              <el-descriptions-item label="当前数值">
+                {{ formatValue(tableData[0]?.value) }}
+              </el-descriptions-item>
+              <el-descriptions-item label="状态">
+                <el-tag :type="currentSensor?.status ? 'success' : 'danger'">
+                  {{ currentSensor?.status ? '在线' : '离线' }}
+                </el-tag>
+              </el-descriptions-item>
+            </el-descriptions>
+          </el-card>
+        </el-col>
       </el-row>
 
+      <!-- 趋势图展示 -->
       <el-row :gutter="20" class="chart-container">
-        <!-- 趋势图展示 -->
         <el-col :span="24">
           <el-card>
             <template #header>
@@ -61,16 +93,27 @@
           <el-card>
             <template #header>
               <div class="card-header">
-                <span>实时数据</span>
+                <span>历史记录</span>
               </div>
             </template>
-            <el-table :data="tableData" style="width: 100%">
+            <el-table :data="tableData" style="width: 100%" border stripe>
               <el-table-column prop="timestamp" label="时间" width="180">
                 <template #default="scope">
                   {{ formatTime(scope.row.timestamp) }}
                 </template>
               </el-table-column>
-              <el-table-column prop="value" :label="currentSensorType" />
+              <el-table-column :label="currentSensorType">
+                <template #default="scope">
+                  {{ formatValue(scope.row.value) }}
+                </template>
+              </el-table-column>
+              <el-table-column label="状态" width="100">
+                <template #default="scope">
+                  <el-tag :type="scope.row.status ? 'success' : 'info'" size="small">
+                    {{ scope.row.status ? '正常' : '异常' }}
+                  </el-tag>
+                </template>
+              </el-table-column>
             </el-table>
           </el-card>
         </el-col>
@@ -108,7 +151,7 @@ export default {
       currentSensor.value ? currentSensor.value.type : ''
     )
 
-    // 仪表盘数据配置
+    // 修改仪表盘数据配置
     const gaugeData = computed(() => {
       const configs = {
         '温度': { min: -20, max: 50, unit: '℃' },
@@ -117,26 +160,62 @@ export default {
         '风速': { min: 0, max: 30, unit: 'm/s' },
         '风向': { min: 0, max: 360, unit: '°' }
       }
-      const type = currentSensorType.value
+      
+      // 获取当前传感器类型
+      const type = currentSensor.value?.type || ''
       const config = configs[type] || { min: 0, max: 100, unit: '' }
       
+      // 获取最新的数值
+      const latestValue = tableData.value[0]?.value || 0
+      
       return {
-        title: `${type}(${config.unit})`,
-        value: tableData.value[0]?.value || 0,
+        title: type ? `${type}(${config.unit})` : '',
+        value: latestValue,
         min: config.min,
         max: config.max
       }
     })
 
+    // 格式化数值显示
+    const formatValue = (value) => {
+      if (value === undefined || value === null) return '-'
+      
+      const configs = {
+        '温度': { unit: '℃', decimals: 1 },
+        '湿度': { unit: '%', decimals: 1 },
+        '光强': { unit: 'lux', decimals: 0 },
+        '风速': { unit: 'm/s', decimals: 1 },
+        '风向': { unit: '°', decimals: 0 }
+      }
+      
+      const config = configs[currentSensorType.value] || { unit: '', decimals: 0 }
+      return `${Number(value).toFixed(config.decimals)} ${config.unit}`
+    }
+
     // 处理传感器选择变化
-    const handleSensorChange = (sensorId) => {
+    const handleSensorChange = async (sensorId) => {
       if (timer) {
         clearInterval(timer)
       }
+      
+      // 清空所有数据
       chartData.value = []
       tableData.value = []
+      
       if (sensorId) {
-        startRealTimeUpdate(sensorId)
+        try {
+          // 立即获取一次数据
+          await store.dispatch('sensor/fetchRealTimeData', sensorId)
+          const data = store.state.sensor.realTimeData
+          if (data) {
+            updateDisplayData(data)
+          }
+          
+          // 开始定时更新
+          startRealTimeUpdate(sensorId)
+        } catch (error) {
+          console.error('切换传感器失败:', error)
+        }
       }
     }
 
@@ -155,20 +234,26 @@ export default {
 
     // 更新显示数据
     const updateDisplayData = (data) => {
+      if (!data) return
+
       // 更新表格数据
-      if (tableData.value.length > 10) {
-        tableData.value = tableData.value.slice(0, 9)
+      const newTableData = {
+        timestamp: data.timestamp,
+        value: data.value,
+        status: true
       }
-      tableData.value.unshift(data)
+      
+      // 使用新数组替换原数组，确保触发响应式更新
+      tableData.value = [newTableData, ...tableData.value.slice(0, 9)]
 
       // 更新趋势图数据
-      if (chartData.value.length > 50) {
-        chartData.value = chartData.value.slice(-49)
-      }
-      chartData.value.push([
+      const newChartData = [
         new Date(data.timestamp).getTime(),
         data.value
-      ])
+      ]
+      
+      // 使用新数组替换原数组，确保触发响应式更新
+      chartData.value = [...chartData.value, newChartData].slice(-50)
     }
 
     // 开始定时更新
@@ -195,12 +280,14 @@ export default {
     return {
       sensors,
       selectedSensor,
+      currentSensor,
       currentSensorType,
       gaugeData,
       chartData,
       tableData,
       handleSensorChange,
-      formatTime
+      formatTime,
+      formatValue
     }
   }
 }
@@ -231,5 +318,9 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.el-descriptions {
+  margin: 20px 0;
 }
 </style> 
