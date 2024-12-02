@@ -204,14 +204,30 @@ export default {
       
       if (sensorId) {
         try {
-          // 立即获取一次数据
-          await store.dispatch('sensor/fetchRealTimeData', sensorId)
-          const data = store.state.sensor.realTimeData
-          if (data) {
-            updateDisplayData(data)
+          // 固定查询时间
+          const startTime = '2000-01-01T00:00:00'
+          const endTime = '2100-12-31T00:00:00'
+          
+          const response = await store.dispatch('sensor/fetchHistoricalData', {
+            sensorId,
+            startTime,
+            endTime,
+            page: 0,
+            size: 1000 // 获取足够多的数据点
+          })
+          
+          // 更新图表数据
+          if (response?.data?.content) {
+            const historyData = response.data.content
+            chartData.value = historyData
+              .sort((a, b) => moment(a.timestamp).valueOf() - moment(b.timestamp).valueOf())
+              .map(item => [
+                new Date(item.timestamp).getTime(),
+                item.value
+              ])
           }
           
-          // 开始定时更新
+          // 开始实时更新
           startRealTimeUpdate(sensorId)
         } catch (error) {
           console.error('切换传感器失败:', error)
@@ -245,7 +261,6 @@ export default {
         type: data.type
       }
       
-      // 使用新数组替换原数组，确保触发响应式更新
       tableData.value = [newTableData, ...tableData.value.slice(0, 9)]
 
       // 更新趋势图数据
@@ -254,8 +269,10 @@ export default {
         data.value
       ]
       
-      // 使用新数组替换原数组，确保触发响应式更新
-      chartData.value = [...chartData.value, newChartData].slice(-50)
+      // 添加新数据点，并保持时间窗口为7天
+      const oneWeekAgo = moment().subtract(7, 'days').valueOf()
+      chartData.value = [...chartData.value, newChartData]
+        .filter(point => point[0] >= oneWeekAgo)
     }
 
     // 开始定时更新
