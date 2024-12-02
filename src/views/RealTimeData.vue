@@ -1,39 +1,84 @@
 <template>
   <div class="realtime-data">
-    <!-- 传感器选择 -->
-    <el-card class="sensor-select">
-      <template #header>
-        <div class="card-header">
-          <span>传感器选择</span>
-        </div>
-      </template>
-      <el-select
-        v-model="selectedSensor"
-        placeholder="请选择传感器"
-        @change="handleSensorChange"
-        style="width: 100%">
-        <el-option
-          v-for="sensor in sensors"
-          :key="sensor.id"
-          :label="sensor.name"
-          :value="sensor.id">
-          <span>{{ sensor.name }}</span>
-          <span style="float: right; color: #8492a6; font-size: 13px">
-            {{ sensor.type }}
-          </span>
-        </el-option>
-      </el-select>
-    </el-card>
+    <!-- 传感器选择区域优化 -->
+    <el-row :gutter="20" class="sensor-select-row">
+      <el-col :span="8">
+        <el-card class="sensor-select-card" shadow="hover">
+          <template #header>
+            <div class="card-header">
+              <span class="header-title">
+                <el-icon><Monitor /></el-icon>
+                传感器选择
+              </span>
+            </div>
+          </template>
+          <el-select
+            v-model="selectedSensor"
+            placeholder="请选择传感器"
+            @change="handleSensorChange"
+            class="sensor-select"
+            size="large">
+            <el-option
+              v-for="sensor in sensors"
+              :key="sensor.id"
+              :label="sensor.name"
+              :value="sensor.id">
+              <div class="sensor-option">
+                <el-icon><Cpu /></el-icon>
+                <span class="sensor-name">{{ sensor.name }}</span>
+                <el-tag size="small" :type="sensor.status ? 'success' : 'danger'" class="sensor-type">
+                  {{ sensor.type }}
+                </el-tag>
+              </div>
+            </el-option>
+          </el-select>
+        </el-card>
+      </el-col>
 
-    <!-- 数据展示区域 - 仅在选择传感器后显示 -->
+      <!-- 当前传感器状态卡片 -->
+      <el-col :span="16" v-if="selectedSensor">
+        <el-card class="status-card" shadow="hover">
+          <template #header>
+            <div class="card-header">
+              <span class="header-title">
+                <el-icon><InfoFilled /></el-icon>
+                传感器状态
+              </span>
+              <el-tag :type="currentSensor?.status ? 'success' : 'danger'" class="status-tag">
+                {{ currentSensor?.status ? '在线' : '离线' }}
+              </el-tag>
+            </div>
+          </template>
+          <el-row :gutter="20" class="status-content">
+            <el-col :span="8" class="status-item">
+              <div class="status-label">传感器名称</div>
+              <div class="status-value">{{ currentSensor?.name }}</div>
+            </el-col>
+            <el-col :span="8" class="status-item">
+              <div class="status-label">传感器类型</div>
+              <div class="status-value">{{ currentSensor?.type }}</div>
+            </el-col>
+            <el-col :span="8" class="status-item">
+              <div class="status-label">当前数值</div>
+              <div class="status-value highlight">{{ formatValue(tableData[0]?.value) }}</div>
+            </el-col>
+          </el-row>
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <!-- 数据展示区域 -->
     <template v-if="selectedSensor">
-      <!-- 仪表盘展示区域 -->
       <el-row :gutter="20" class="data-display">
+        <!-- 仪表盘展示 -->
         <el-col :span="8">
-          <el-card>
+          <el-card class="gauge-card" shadow="hover">
             <template #header>
               <div class="card-header">
-                <span>实时仪表</span>
+                <span class="header-title">
+                  <el-icon><DataLine /></el-icon>
+                  实时仪表
+                </span>
               </div>
             </template>
             <gauge-chart
@@ -41,83 +86,70 @@
               :title="gaugeData.title"
               :min="gaugeData.min"
               :max="gaugeData.max"
+              height="300px"
             />
           </el-card>
         </el-col>
 
-        <!-- 当前值和状态展示 -->
+        <!-- 趋势图展示 -->
         <el-col :span="16">
-          <el-card>
+          <el-card class="trend-card" shadow="hover">
             <template #header>
               <div class="card-header">
-                <span>传感器信息</span>
+                <span class="header-title">
+                  <el-icon><TrendCharts /></el-icon>
+                  实时趋势
+                </span>
               </div>
             </template>
-            <el-descriptions :column="2" border>
-              <el-descriptions-item label="传感器名称">
-                {{ currentSensor?.name }}
-              </el-descriptions-item>
-              <el-descriptions-item label="传感器类型">
-                {{ currentSensor?.type }}
-              </el-descriptions-item>
-              <el-descriptions-item label="当前数值">
-                {{ formatValue(tableData[0]?.value) }}
-              </el-descriptions-item>
-              <el-descriptions-item label="状态">
-                <el-tag :type="currentSensor?.status ? 'success' : 'danger'">
-                  {{ currentSensor?.status ? '在线' : '离线' }}
-                </el-tag>
-              </el-descriptions-item>
-            </el-descriptions>
+            <line-chart :data="chartData" height="300px" />
           </el-card>
         </el-col>
       </el-row>
 
-      <!-- 趋势图展示 -->
-      <el-row :gutter="20" class="chart-container">
-        <el-col :span="24">
-          <el-card>
-            <template #header>
-              <div class="card-header">
-                <span>实时趋势</span>
-              </div>
+      <!-- 历史数据表格 -->
+      <el-card class="history-card" shadow="hover">
+        <template #header>
+          <div class="card-header">
+            <span class="header-title">
+              <el-icon><List /></el-icon>
+              历史记录
+            </span>
+          </div>
+        </template>
+        <el-table 
+          :data="tableData" 
+          style="width: 100%" 
+          border 
+          stripe
+          size="large"
+          :header-cell-style="{
+            background: '#f5f7fa',
+            color: '#606266',
+            fontWeight: 'bold'
+          }">
+          <el-table-column prop="timestamp" label="时间" width="180" fixed>
+            <template #default="scope">
+              {{ formatTime(scope.row.timestamp) }}
             </template>
-            <line-chart :data="chartData" height="400px" />
-          </el-card>
-        </el-col>
-      </el-row>
-
-      <!-- 数据表格 -->
-      <el-row :gutter="20" class="table-container">
-        <el-col :span="24">
-          <el-card>
-            <template #header>
-              <div class="card-header">
-                <span>历史记录</span>
-              </div>
+          </el-table-column>
+          <el-table-column :label="currentSensorType">
+            <template #default="scope">
+              <span class="value-cell">{{ formatValue(scope.row.value) }}</span>
             </template>
-            <el-table :data="tableData" style="width: 100%" border stripe>
-              <el-table-column prop="timestamp" label="时间" width="180">
-                <template #default="scope">
-                  {{ formatTime(scope.row.timestamp) }}
-                </template>
-              </el-table-column>
-              <el-table-column :label="currentSensorType">
-                <template #default="scope">
-                  {{ formatValue(scope.row.value) }}
-                </template>
-              </el-table-column>
-              <el-table-column label="状态" width="100">
-                <template #default="scope">
-                  <el-tag :type="scope.row.status ? 'success' : 'info'" size="small">
-                    {{ scope.row.status ? '正常' : '异常' }}
-                  </el-tag>
-                </template>
-              </el-table-column>
-            </el-table>
-          </el-card>
-        </el-col>
-      </el-row>
+          </el-table-column>
+          <el-table-column label="状态" width="100" align="center">
+            <template #default="scope">
+              <el-tag 
+                :type="scope.row.status ? 'success' : 'danger'"
+                size="small"
+                effect="dark">
+                {{ scope.row.status ? '正常' : '异常' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-card>
     </template>
   </div>
 </template>
@@ -375,31 +407,103 @@ export default {
 <style scoped>
 .realtime-data {
   padding: 20px;
+  background-color: #f5f7fa;
+  min-height: calc(100vh - 120px);
 }
 
-.sensor-select {
+.sensor-select-row {
   margin-bottom: 20px;
 }
 
-.data-display {
-  margin-bottom: 20px;
-}
-
-.chart-container {
-  margin-bottom: 20px;
-}
-
-.table-container {
-  margin-bottom: 20px;
+.sensor-select-card, .status-card, .gauge-card, .trend-card, .history-card {
+  border-radius: 8px;
+  transition: all 0.3s;
 }
 
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 0 10px;
 }
 
-.el-descriptions {
-  margin: 20px 0;
+.header-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.sensor-select {
+  width: 100%;
+}
+
+.sensor-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sensor-name {
+  flex: 1;
+}
+
+.sensor-type {
+  margin-left: auto;
+}
+
+.status-content {
+  padding: 10px 0;
+}
+
+.status-item {
+  text-align: center;
+  border-right: 1px solid #ebeef5;
+}
+
+.status-item:last-child {
+  border-right: none;
+}
+
+.status-label {
+  color: #909399;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.status-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.status-value.highlight {
+  color: #409eff;
+  font-size: 20px;
+}
+
+.data-display {
+  margin-bottom: 20px;
+}
+
+.value-cell {
+  font-family: monospace;
+  font-size: 14px;
+  color: #409eff;
+}
+
+/* 添加响应式布局 */
+@media screen and (max-width: 1200px) {
+  .sensor-select-row > .el-col {
+    width: 100%;
+    margin-bottom: 20px;
+  }
+  
+  .data-display > .el-col {
+    width: 100%;
+    margin-bottom: 20px;
+  }
 }
 </style>
