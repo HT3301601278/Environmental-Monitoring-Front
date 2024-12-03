@@ -148,27 +148,101 @@ export default {
 
     // 修改原有的 addMarker 函数，添加右键菜单
     const addMarker = (map, point, data) => {
-      const marker = new BMap.Marker(point, {
-        enableDragging: true,  // 启用拖拽
-        enableClicking: true
-      })
-      
+      const marker = new BMap.Marker(point)
       map.addOverlay(marker)
 
-      // 添加拖拽结束事件
-      marker.addEventListener('dragend', async (e) => {
-        try {
-          await store.dispatch('sensor/updateSensorLocation', {
-            id: data.id,
-            latitude: e.point.lat,
-            longitude: e.point.lng
-          })
-          ElMessage.success('位置更新成功')
-        } catch (error) {
-          ElMessage.error('位置更新失败')
-          // 恢复原位置
-          marker.setPosition(point)
-        }
+      // 创建一个可编辑的信息窗口内容
+      const createInfoWindow = (isEditing = false) => {
+        const content = document.createElement('div')
+        content.innerHTML = `
+          <div style="padding: 10px">
+            <h4 style="margin: 0 0 10px 0">${data.name}</h4>
+            <p style="margin: 5px 0">类型：${data.type}</p>
+            <p style="margin: 5px 0">状态：${data.status ? '在线' : '离线'}</p>
+            ${isEditing ? `
+              <div style="margin: 10px 0">
+                <div style="margin: 5px 0">
+                  <label style="display: inline-block; width: 60px">经度：</label>
+                  <input type="number" id="longitude" value="${data.longitude}" step="0.0001" style="width: 120px"/>
+                </div>
+                <div style="margin: 5px 0">
+                  <label style="display: inline-block; width: 60px">纬度：</label>
+                  <input type="number" id="latitude" value="${data.latitude}" step="0.0001" style="width: 120px"/>
+                </div>
+                <div style="margin-top: 10px; text-align: right">
+                  <button id="cancelEdit" style="margin-right: 10px">取消</button>
+                  <button id="saveLocation" style="color: #fff; background-color: #409eff; border: none; padding: 5px 10px; border-radius: 4px">保存</button>
+                </div>
+              </div>
+            ` : `
+              <p style="margin: 5px 0">经度：${data.longitude}</p>
+              <p style="margin: 5px 0">纬度：${data.latitude}</p>
+              <div style="margin-top: 10px; text-align: right">
+                <button id="editLocation" style="color: #fff; background-color: #409eff; border: none; padding: 5px 10px; border-radius: 4px">修改位置</button>
+              </div>
+            `}
+          </div>
+        `
+
+        // 添加事件监听器
+        setTimeout(() => {
+          const editBtn = content.querySelector('#editLocation')
+          const saveBtn = content.querySelector('#saveLocation')
+          const cancelBtn = content.querySelector('#cancelEdit')
+
+          if (editBtn) {
+            editBtn.onclick = () => {
+              const newInfoWindow = new BMap.InfoWindow(createInfoWindow(true))
+              map.openInfoWindow(newInfoWindow, point)
+            }
+          }
+
+          if (saveBtn) {
+            saveBtn.onclick = async () => {
+              const newLongitude = parseFloat(content.querySelector('#longitude').value)
+              const newLatitude = parseFloat(content.querySelector('#latitude').value)
+
+              try {
+                await store.dispatch('sensor/updateSensorLocation', {
+                  id: data.id,
+                  latitude: newLatitude,
+                  longitude: newLongitude
+                })
+
+                ElMessage.success('位置更新成功')
+                
+                // 更新标记点位置
+                const newPoint = new BMap.Point(newLongitude, newLatitude)
+                marker.setPosition(newPoint)
+                
+                // 刷新信息窗口
+                const newInfoWindow = new BMap.InfoWindow(createInfoWindow(false))
+                map.openInfoWindow(newInfoWindow, newPoint)
+                
+                // 更新数据
+                data.longitude = newLongitude
+                data.latitude = newLatitude
+              } catch (error) {
+                ElMessage.error('位置更新失败')
+              }
+            }
+          }
+
+          if (cancelBtn) {
+            cancelBtn.onclick = () => {
+              const newInfoWindow = new BMap.InfoWindow(createInfoWindow(false))
+              map.openInfoWindow(newInfoWindow, point)
+            }
+          }
+        }, 0)
+
+        return content
+      }
+
+      // 添加点击事件，显示信息窗口
+      marker.addEventListener('click', () => {
+        const infoWindow = new BMap.InfoWindow(createInfoWindow(false))
+        map.openInfoWindow(infoWindow, point)
       })
 
       // 添加右键菜单
@@ -184,21 +258,6 @@ export default {
       }))
       
       marker.addContextMenu(menu)
-
-      // 添加信息窗口
-      const infoWindow = new BMap.InfoWindow(`
-        <div>
-          <h4>${data.name}</h4>
-          <p>类型：${data.type}</p>
-          <p>状态：${data.status ? '在线' : '离线'}</p>
-          <p>经度：${data.longitude}</p>
-          <p>纬度：${data.latitude}</p>
-        </div>
-      `)
-      
-      marker.addEventListener('click', () => {
-        map.openInfoWindow(infoWindow, point)
-      })
 
       return marker
     }
