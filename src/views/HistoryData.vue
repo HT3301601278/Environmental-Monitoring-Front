@@ -55,41 +55,24 @@
           <span>历史数据列表</span>
         </div>
       </template>
-      <el-table
-        :data="tableData"
-        style="width: 100%"
-        height="400"
-        border
-        :default-sort="{ prop: 'timestamp', order: 'descending' }"
-      >
-        <el-table-column prop="timestamp" label="时间" sortable width="180">
+      <el-table :data="tableData" style="width: 100%" border>
+        <el-table-column prop="timestamp" label="时间" width="180">
           <template #default="scope">
             {{ formatTime(scope.row.timestamp) }}
           </template>
         </el-table-column>
-        <el-table-column prop="sensorName" label="传感器名称" />
-        <el-table-column prop="sensorType" label="传感器类型" />
-        <el-table-column prop="value" label="数值" />
+        <el-table-column prop="value" label="数值" width="180" />
+        <el-table-column prop="sensorName" label="传感器" />
+        <el-table-column prop="type" label="类型" />
       </el-table>
-      <div class="pagination">
-        <el-pagination
-          v-model:current-page="currentPage"
-          v-model:page-size="pageSize"
-          :page-sizes="[10, 20, 50, 100]"
-          layout="total, sizes, prev, pager, next, jumper"
-          :total="total"
-          @size-change="handleSizeChange"
-          @current-change="handleCurrentChange"
-        />
-      </div>
     </el-card>
   </div>
 </template>
 
 <script>
-import {computed, ref} from 'vue'
-import {useStore} from 'vuex'
-import {ElMessage} from 'element-plus'
+import { ref, computed } from 'vue'
+import { useStore } from 'vuex'
+import { ElMessage } from 'element-plus'
 import LineChart from '@/components/charts/LineChart.vue'
 import moment from 'moment'
 
@@ -101,48 +84,18 @@ export default {
   setup() {
     const store = useStore()
     const queryForm = ref({
-      sensorId: null,
+      sensorId: '',
       timeRange: null
     })
-    const currentPage = ref(1)
-    const pageSize = ref(10)
-    const total = ref(0)
+    const hasData = ref(false)
+    const chartData = ref([])
+    const tableData = ref([])
     const defaultTime = [
-      new Date(2000, 1, 1, 0, 0, 0),
-      new Date(2000, 2, 1, 23, 59, 59)
+      new Date(2000, 0, 1, 0, 0, 0),
+      new Date(2000, 0, 1, 23, 59, 59)
     ]
 
-    const hasData = computed(() => {
-      const historyData = store.state.sensor.historicalData
-      return historyData && Array.isArray(historyData.content) && historyData.content.length > 0
-    })
-
-    const chartData = computed(() => {
-      const historyData = store.state.sensor.historicalData
-      if (!historyData?.content || !Array.isArray(historyData.content)) {
-        return []
-      }
-      return historyData.content
-        .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
-        .map(item => [
-          new Date(item.timestamp).getTime(),
-          parseFloat(item.value)
-        ])
-    })
-
-    const tableData = computed(() => {
-      const historyData = store.state.sensor.historicalData
-      if (!historyData?.content || !Array.isArray(historyData.content)) {
-        return []
-      }
-      return historyData.content.map(item => ({
-        timestamp: item.timestamp,
-        value: parseFloat(item.value),
-        sensorName: item.sensor.name,
-        sensorType: item.sensor.type
-      }))
-    })
-
+    // 处理查询
     const handleQuery = async () => {
       if (!queryForm.value.sensorId || !queryForm.value.timeRange) {
         ElMessage.warning('请选择查询条件')
@@ -155,17 +108,36 @@ export default {
           sensorId: queryForm.value.sensorId,
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
-          page: currentPage.value - 1,
-          size: pageSize.value
+          page: 0,
+          size: 1000
         })
 
         const historyData = store.state.sensor.historicalData
-        if (historyData?.content && Array.isArray(historyData.content) && historyData.content.length > 0) {
-          total.value = historyData.totalElements || 0
-          currentPage.value = 1
-        } else {
-          total.value = 0
-          ElMessage.warning('暂无历史数据')
+        if (historyData?.content && Array.isArray(historyData.content)) {
+          if (historyData.content.length > 0) {
+            hasData.value = true
+            
+            // 处理图表数据
+            chartData.value = historyData.content
+              .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+              .map(item => [
+                new Date(item.timestamp).getTime(),
+                parseFloat(item.value)
+              ])
+
+            // 处理表格数据
+            tableData.value = historyData.content
+              .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+              .map(item => ({
+                timestamp: item.timestamp,
+                value: parseFloat(item.value),
+                sensorName: item.sensor.name,
+                type: item.sensor.type
+              }))
+          } else {
+            hasData.value = false
+            ElMessage.warning('暂无历史数据')
+          }
         }
       } catch (error) {
         console.error('查询历史数据失败:', error)
@@ -173,56 +145,20 @@ export default {
       }
     }
 
-    const handleSizeChange = (val) => {
-      pageSize.value = val
-      currentPage.value = 1
-    }
-
-    const handleCurrentChange = (val) => {
-      currentPage.value = val
-    }
-
+    // 格式化时间
     const formatTime = (timestamp) => {
       return moment(timestamp).format('YYYY-MM-DD HH:mm:ss')
     }
 
-    const exportData = () => {
-      const data = store.state.sensor.historicalData
-      const headers = ['时间', '温度(℃)', '湿度(%)', '光照(lux)', '风速(m/s)', '风向']
-      const csvContent = [
-        headers.join(','),
-        ...data.map(row => [
-          formatTime(row.timestamp),
-          row.temperature,
-          row.humidity,
-          row.light,
-          row.windSpeed,
-          row.windDirection
-        ].join(','))
-      ].join('\n')
-
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-      const link = document.createElement('a')
-      link.href = URL.createObjectURL(blob)
-      link.download = `历史数据_${formatTime(new Date())}.csv`
-      link.click()
-    }
-
     return {
       queryForm,
-      currentPage,
-      pageSize,
-      total,
-      defaultTime,
       hasData,
       chartData,
       tableData,
+      defaultTime,
       sensors: computed(() => store.state.sensor.sensors),
       handleQuery,
-      handleSizeChange,
-      handleCurrentChange,
-      formatTime,
-      exportData
+      formatTime
     }
   }
 }
@@ -245,10 +181,5 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-}
-
-.pagination {
-  margin-top: 20px;
-  text-align: right;
 }
 </style>
