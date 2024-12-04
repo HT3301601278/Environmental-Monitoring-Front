@@ -76,11 +76,11 @@ export default {
     async addSensor({ dispatch }, sensor) {
       try {
         await api.post('/api/sensors', sensor)
-        ElMessage.success('传感器添加成功')
         await dispatch('fetchSensors')
       } catch (error) {
         ElMessage.error('传感器添加失败')
         console.error('添加传感器失败:', error)
+        throw error
       }
     },
     async updateSensor({ dispatch }, sensor) {
@@ -96,21 +96,21 @@ export default {
     async deleteSensor({ dispatch }, id) {
       try {
         await api.delete(`/api/sensors/${id}`)
-        ElMessage.success('传感器删除成功')
         await dispatch('fetchSensors')
       } catch (error) {
         ElMessage.error('传感器删除失败')
         console.error('删除传感器失败:', error)
+        throw error
       }
     },
     async updateSensorLocation({ dispatch }, { id, latitude, longitude }) {
       try {
         await api.put(`/api/map/sensors/${id}/location`, { latitude, longitude })
-        ElMessage.success('位置更新成功')
         await dispatch('fetchSensors')
       } catch (error) {
         ElMessage.error('位置更新失败')
         console.error('更新传感器位置失败:', error)
+        throw error
       }
     },
     async fetchAllRealTimeData({ commit }) {
