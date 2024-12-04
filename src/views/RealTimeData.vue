@@ -155,7 +155,7 @@
 </template>
 
 <script>
-import {computed, onMounted, onUnmounted, ref} from 'vue'
+import {computed, onMounted, ref} from 'vue'
 import {useStore} from 'vuex'
 import GaugeChart from '@/components/charts/GaugeChart.vue'
 import LineChart from '@/components/charts/LineChart.vue'
@@ -172,7 +172,6 @@ export default {
     const selectedSensor = ref(null)
     const chartData = ref([])
     const tableData = ref([])
-    let timer = null
 
     // 获取传感器列表
     const sensors = computed(() => store.state.sensor.sensors)
@@ -263,43 +262,35 @@ export default {
 
     // 处理传感器选择变化
     const handleSensorChange = async (sensorId) => {
-      if (timer) {
-        clearInterval(timer)
-      }
-
       // 清空所有数据
       chartData.value = []
       tableData.value = []
 
       if (sensorId) {
         try {
-          // 固定查询时间
-          const startTime = '2000-01-01T00:00:00'
-          const endTime = '2100-12-31T00:00:00'
-
-          const response = await store.dispatch('sensor/fetchHistoricalData', {
+          // 固定查询时间范围
+          const params = {
             sensorId,
-            startTime,
-            endTime,
+            startTime: '2000-01-01T00:00:00',
+            endTime: '2100-12-31T00:00:00',
             page: 0,
             size: 1000
-          })
+          }
 
-          // 更新图表数据
+          const response = await store.dispatch('sensor/fetchHistoricalData', params)
+
+          // 更新图表和表格数据
           if (response?.data?.content) {
             const historyData = response.data.content
 
-            // 确保数据是有效的
             if (Array.isArray(historyData) && historyData.length > 0) {
               // 按时间升序排序用于图表显示
-              const sortedChartData = [...historyData]
+              chartData.value = [...historyData]
                 .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
                 .map(item => [
                   new Date(item.timestamp).getTime(),
                   parseFloat(item.value)
                 ])
-
-              chartData.value = sortedChartData
 
               // 按时间降序排序用于表格显示
               tableData.value = [...historyData]
@@ -312,65 +303,16 @@ export default {
                   type: item.sensor.type
                 }))
 
-              console.log('Chart data:', chartData.value) // 调试用
+              console.log('Data updated successfully')
             } else {
               console.warn('No valid historical data received')
             }
           }
-
-          // 开始实时更新
-          startRealTimeUpdate(sensorId)
         } catch (error) {
           console.error('切换传感器失败:', error)
           ElMessage.error('获取历史数据失败')
         }
       }
-    }
-
-    // 获取实时数据
-    const fetchRealTimeData = async (sensorId) => {
-      try {
-        await store.dispatch('sensor/fetchRealTimeData', sensorId)
-        const response = store.state.sensor.realTimeData
-        if (response && response.data) {
-          updateDisplayData(response.data)
-        }
-      } catch (error) {
-        console.error('获取实时数据失败:', error)
-      }
-    }
-
-    // 更新显示数据
-    const updateDisplayData = (data) => {
-      if (!data) return
-
-      // 更新表格数据
-      const newTableData = {
-        timestamp: data.timestamp,
-        value: parseFloat(data.value),
-        status: true,
-        sensorName: data.sensorName,
-        type: data.type
-      }
-
-      tableData.value = [newTableData, ...tableData.value.slice(0, 9)]
-
-      // 更新趋势图数据
-      const newChartData = [
-        new Date(data.timestamp).getTime(),
-        parseFloat(data.value)
-      ]
-
-      // 添加新数据点，并保持时间窗口为7天
-      const oneWeekAgo = moment().subtract(7, 'days').valueOf()
-      chartData.value = [...chartData.value, newChartData]
-        .filter(point => point[0] >= oneWeekAgo)
-    }
-
-    // 开始定时更新
-    const startRealTimeUpdate = (sensorId) => {
-      fetchRealTimeData(sensorId) // 立即获取一次数据
-      timer = setInterval(() => fetchRealTimeData(sensorId), 5000) // 每5秒更新一次
     }
 
     // 格式化时间
@@ -380,12 +322,6 @@ export default {
 
     onMounted(async () => {
       await store.dispatch('sensor/fetchSensors')
-    })
-
-    onUnmounted(() => {
-      if (timer) {
-        clearInterval(timer)
-      }
     })
 
     return {
