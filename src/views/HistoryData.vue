@@ -40,6 +40,44 @@
       </el-form>
     </el-card>
 
+    <el-card v-if="queryForm.sensorId" class="realtime-card">
+      <template #header>
+        <div class="card-header">
+          <span>实时数据</span>
+          <el-button type="primary" size="small" @click="fetchRealTimeData">
+            <el-icon><Refresh /></el-icon>
+            刷新
+          </el-button>
+        </div>
+      </template>
+      <el-row :gutter="20">
+        <el-col :span="6">
+          <div class="data-item">
+            <div class="label">传感器名称</div>
+            <div class="value">{{ realTimeData?.sensorName || '-' }}</div>
+          </div>
+        </el-col>
+        <el-col :span="6">
+          <div class="data-item">
+            <div class="label">传感器类型</div>
+            <div class="value">{{ realTimeData?.type || '-' }}</div>
+          </div>
+        </el-col>
+        <el-col :span="6">
+          <div class="data-item">
+            <div class="label">当前数值</div>
+            <div class="value highlight">{{ formatValue(realTimeData?.value) }}</div>
+          </div>
+        </el-col>
+        <el-col :span="6">
+          <div class="data-item">
+            <div class="label">更新时间</div>
+            <div class="value">{{ formatTime(realTimeData?.timestamp) || '-' }}</div>
+          </div>
+        </el-col>
+      </el-row>
+    </el-card>
+
     <el-card v-if="hasData" class="chart-card">
       <template #header>
         <div class="card-header">
@@ -70,11 +108,12 @@
 </template>
 
 <script>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useStore } from 'vuex'
 import { ElMessage } from 'element-plus'
 import LineChart from '@/components/charts/LineChart.vue'
 import moment from 'moment'
+import api from '@/api'
 
 export default {
   name: 'HistoryData',
@@ -94,6 +133,7 @@ export default {
       new Date(2000, 0, 1, 0, 0, 0),
       new Date(2000, 0, 1, 23, 59, 59)
     ]
+    const realTimeData = ref(null)
 
     // 处理查询
     const handleQuery = async () => {
@@ -150,6 +190,60 @@ export default {
       return moment(timestamp).format('YYYY-MM-DD HH:mm:ss')
     }
 
+    // 添加获取实时数据的方法
+    const fetchRealTimeData = async () => {
+      if (!queryForm.value.sensorId) {
+        ElMessage.warning('请先选择传感器')
+        return
+      }
+
+      try {
+        const response = await api.get(`/api/sensors/${queryForm.value.sensorId}/realtime`)
+        if (response?.data) {
+          realTimeData.value = response.data
+        }
+      } catch (error) {
+        console.error('获取实时数据失败:', error)
+        ElMessage.error('获取实时数据失败')
+      }
+    }
+
+    // 添加值格式化方法
+    const formatValue = (value) => {
+      if (value === undefined || value === null) return '-'
+
+      const configs = {
+        '温度': { unit: '℃', decimals: 1 },
+        '湿度': { unit: '%', decimals: 1 },
+        '光强': { unit: 'lux', decimals: 0 },
+        '风速': { unit: 'm/s', decimals: 1 },
+        '风向': {
+          format: (val) => {
+            const directions = ['北', '东北', '东', '东南', '南', '西南', '西', '西北']
+            const index = Math.floor(((val / 100 * 360 + 22.5) % 360) / 45)
+            return directions[index]
+          }
+        }
+      }
+
+      const config = configs[realTimeData.value?.type] || { unit: '', decimals: 0 }
+
+      if (realTimeData.value?.type === '风向') {
+        return config.format(value)
+      }
+
+      return `${Number(value).toFixed(config.decimals || 0)} ${config.unit || ''}`
+    }
+
+    // 监听传感器选择变化，自动获取实时数据
+    watch(() => queryForm.value.sensorId, (newVal) => {
+      if (newVal) {
+        fetchRealTimeData()
+      } else {
+        realTimeData.value = null
+      }
+    })
+
     return {
       queryForm,
       hasData,
@@ -158,7 +252,10 @@ export default {
       defaultTime,
       sensors: computed(() => store.state.sensor.sensors),
       handleQuery,
-      formatTime
+      formatTime,
+      realTimeData,
+      fetchRealTimeData,
+      formatValue
     }
   }
 }
@@ -175,6 +272,37 @@ export default {
 
 .chart-card {
   margin-bottom: 20px;
+}
+
+.realtime-card {
+  margin-bottom: 20px;
+}
+
+.data-item {
+  text-align: center;
+  padding: 10px;
+  border-right: 1px solid #ebeef5;
+}
+
+.data-item:last-child {
+  border-right: none;
+}
+
+.data-item .label {
+  color: #909399;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.data-item .value {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.data-item .value.highlight {
+  color: #409eff;
+  font-size: 20px;
 }
 
 .card-header {
