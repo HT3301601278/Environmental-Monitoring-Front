@@ -107,13 +107,13 @@
         </el-col>
       </el-row>
 
-      <!-- 历史数据表格 -->
+      <!-- 实时表格 -->
       <el-card class="history-card" shadow="hover">
         <template #header>
           <div class="card-header">
             <span class="header-title">
               <el-icon><List /></el-icon>
-              历史记录
+              实时表格
             </span>
           </div>
         </template>
